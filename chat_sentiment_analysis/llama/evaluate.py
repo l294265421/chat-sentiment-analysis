@@ -22,6 +22,9 @@ def parse(task_name: str, label: str):
     :return:
     """
     result = []
+    if not label:
+        return result
+
     if task_name == 'extract aspect terms from the sentence':
         # there are no aspect terms in the sentence.
         if label != 'there are no aspect terms in the sentence.':

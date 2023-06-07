@@ -2,8 +2,38 @@ import os
 import json
 from collections import defaultdict
 
+from numpy import random
+
 from chat_sentiment_analysis.common import common_path
 from chat_sentiment_analysis.utils import file_utils
+
+
+def sample_instances(data, num):
+    """
+
+    :param data:
+    :param num:
+    :return:
+    """
+    if num == 'all':
+        return data
+    else:
+        task_and_instances = {}
+        for line in data:
+            instance = json.loads(line)
+            instruction = instance['instruction']
+            dataset = instance['dataset']
+            key = '%s_%s' % (instruction, dataset)
+            if key not in task_and_instances:
+                task_and_instances[key] = []
+            task_and_instances[key].append(line)
+
+        result = []
+        for task, instances in task_and_instances.items():
+            rng = random.default_rng()
+            target_instances = rng.choice(instances, int(num)).tolist()
+            result.extend(target_instances)
+        return result
 
 
 if __name__ == '__main__':
@@ -14,6 +44,7 @@ if __name__ == '__main__':
         instructions = []
         sentences = []
         responses = []
+        names = []
         for dataset_name in dataset_names:
             filepath = filepath_template.format(base_input_dir=base_input_dir, dataset_name=dataset_name,
                                                 data_type=data_type)
@@ -28,6 +59,7 @@ if __name__ == '__main__':
                 instruction = 'extract aspect terms from the sentence'
                 instructions.append(instruction)
                 sentences.append(sentence)
+                names.append(dataset_name)
                 aspect_terms = []
                 for aspect in aspects:
                     if 'aspect_term' not in aspect:
@@ -43,6 +75,7 @@ if __name__ == '__main__':
                 instruction = 'extract opinion term from the sentence'
                 instructions.append(instruction)
                 sentences.append(sentence)
+                names.append(dataset_name)
                 opinion_terms = set()
                 for aspect in aspects:
                     if 'opinions' not in aspect:
@@ -62,6 +95,7 @@ if __name__ == '__main__':
                 instruction = 'extract aspect term-opinion term pairs from the sentence'
                 instructions.append(instruction)
                 sentences.append(sentence)
+                names.append(dataset_name)
                 pairs = []
                 for aspect in aspects:
                     if 'opinions' not in aspect:
@@ -83,6 +117,7 @@ if __name__ == '__main__':
                 instruction = 'extract aspect term, sentiment, opinion term triplets from the sentence'
                 instructions.append(instruction)
                 sentences.append(sentence)
+                names.append(dataset_name)
                 triplets = []
                 for aspect in aspects:
                     if 'opinions' not in aspect:
@@ -106,10 +141,18 @@ if __name__ == '__main__':
                 'instruction': instruction,
                 'input': sentences[i],
                 'output': responses[i],
-                'dataset': dataset_name
+                'dataset': names[i]
             }
             output_lines.append(json.dumps(instance))
 
-        output_dir = os.path.join(common_path.data_dir, 'task_data')
-        output_filepath = os.path.join(output_dir, f'asote.{data_type}.json')
-        file_utils.write_lines(output_lines, output_filepath)
+        if data_type == 'train':
+            training_instance_nums = ['64', 'all']
+            for training_instance_num in training_instance_nums:
+                output_dir = os.path.join(common_path.data_dir, 'task_data')
+                output_filepath = os.path.join(output_dir, f'asote.{data_type}.{training_instance_num}.json')
+                output_lines = sample_instances(output_lines, training_instance_num)
+                file_utils.write_lines(output_lines, output_filepath)
+        else:
+            output_dir = os.path.join(common_path.data_dir, 'task_data')
+            output_filepath = os.path.join(output_dir, f'asote.{data_type}.json')
+            file_utils.write_lines(output_lines, output_filepath)

@@ -10,6 +10,7 @@ import transformers
 from datasets import load_dataset
 from datasets import Dataset
 from datasets import DatasetDict
+import wandb
 
 from chat_sentiment_analysis.common import common_path
 
@@ -25,6 +26,7 @@ from transformers import LlamaForCausalLM, LlamaTokenizer
 from chat_sentiment_analysis.utils.prompter import Prompter
 
 # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+wandb.login(key="6c52cf61837ddd8efa62755b86139c41bbad09ec")
 
 
 def tokenize(prompt, tokenizer, cutoff_len, add_eos_token=True):
@@ -77,8 +79,8 @@ def generate_and_tokenize_prompt_wrapper(prompter, train_on_inputs, tokenizer, c
 def train(
     # model/data params
     base_model: str = "decapoda-research/llama-7b-hf",  # the only required argument
-    data_path: str = os.path.join(common_path.data_dir, 'task_data', 'asote.train.json'),
-    output_dir: str = "./chat-sentiment-analysis",
+    data_path: str = os.path.join(common_path.data_dir, 'task_data', 'asote.train.64.json'),
+    output_dir: str = "./chat-sentiment-analysis-64",
     # training hyperparams
     batch_size: int = 128,
     micro_batch_size: int = 8,

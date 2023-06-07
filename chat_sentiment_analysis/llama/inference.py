@@ -19,7 +19,7 @@ device = "cuda:0"
 def main(
     load_8bit: bool = False,
     base_model: str = "decapoda-research/llama-7b-hf",
-    lora_weights: str = os.path.join(common_path.project_dir, 'chat-sentiment-analysis'),
+    lora_weights: str = os.path.join(common_path.project_dir, 'chat-sentiment-analysis-all'),
     prompt_template: str = "sentiment_analysis",  # The prompt template to use, will default to alpaca.
     data_path: str = os.path.join(common_path.data_dir, 'task_data', 'asote.test.json')
 ):
@@ -55,26 +55,16 @@ def main(
         model = torch.compile(model)
 
     def evaluate(
-        instruction,
-        input=None,
-        temperature=0.1,
-        top_p=0.75,
-        top_k=40,
-        num_beams=4,
-        max_new_tokens=512,
+        prompt,
+        max_new_tokens=64,
         **kwargs,
     ):
-        prompt = prompter.generate_prompt(instruction, input)
         inputs = tokenizer(prompt, return_tensors="pt")
         input_ids = inputs["input_ids"].to(device)
         # https://huggingface.co/blog/how-to-generate
         # https://huggingface.co/docs/transformers/generation_strategies
         # https://medium.com/mlearning-ai/softmax-temperature-5492e4007f71
         generation_config = GenerationConfig(
-            temperature=temperature,
-            top_p=top_p,
-            top_k=top_k,
-            num_beams=num_beams,
             **kwargs,
         )
         with torch.no_grad():
@@ -85,20 +75,42 @@ def main(
                 output_scores=True,
                 max_new_tokens=max_new_tokens,
             )
-        s = generation_output.sequences[0]
-        output = tokenizer.decode(s)
-        return prompter.get_response(output)
+        generated_texts = tokenizer.batch_decode(generation_output, skip_special_tokens=True)
+        return None
 
     output_lines = []
     lines = file_utils.read_all_lines(data_path)
+    batch_size = 32
+    line_batch = []
+    prompt_batch = []
     for line in lines:
         line_obj = json.loads(line)
+        line_batch.append(line_obj)
+
         instruction = line_obj['instruction']
         input = line_obj['input']
-        pred = evaluate(instruction, input=input)
-        line_obj['pred'] = pred
-        output_line = json.dumps(line_obj, ensure_ascii=False)
-        output_lines.append(output_line)
+        prompt = prompter.generate_prompt(instruction, input)
+        prompt_batch.append(prompt)
+
+        if len(prompt_batch) == batch_size:
+            preds = evaluate(prompt_batch)
+            for i in range(len(preds)):
+                line_batch[i]['pred'] = preds[i]
+            output_lines.extend(line_batch)
+
+            line_batch = []
+            prompt_batch = []
+
+    if prompt_batch:
+        preds = evaluate(prompt_batch)
+        for i in range(len(preds)):
+            line_batch[i]['pred'] = preds[i]
+        output_lines.extend(line_batch)
+
+        line_batch = []
+        prompt_batch = []
+
+    [json.dumps(line_obj, ensure_ascii=False) for e in output_lines]
 
     output_filepath = data_path + '.with_pred'
     file_utils.write_lines(output_lines, output_filepath)
