@@ -3,6 +3,8 @@
 start_time=`date +%Y%m%d%H%M%S`
 echo "start ${start_time}--------------------------------------------------"
 
+export CUDA_VISIBLE_DEVICES=0
+
 export LANG="zh_CN.UTF-8"
 
 CUR_DIR=`pwd`

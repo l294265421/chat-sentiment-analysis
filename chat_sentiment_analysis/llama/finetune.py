@@ -13,12 +13,6 @@ from datasets import DatasetDict
 
 from chat_sentiment_analysis.common import common_path
 
-"""
-Unused imports:
-import torch.nn as nn
-import bitsandbytes as bnb
-"""
-
 from peft import (
     LoraConfig,
     get_peft_model,
@@ -29,6 +23,8 @@ from peft import (
 from transformers import LlamaForCausalLM, LlamaTokenizer
 
 from chat_sentiment_analysis.utils.prompter import Prompter
+
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 
 def tokenize(prompt, tokenizer, cutoff_len, add_eos_token=True):
@@ -81,7 +77,7 @@ def generate_and_tokenize_prompt_wrapper(prompter, train_on_inputs, tokenizer, c
 def train(
     # model/data params
     base_model: str = "decapoda-research/llama-7b-hf",  # the only required argument
-    data_path: str = os.path.join(common_path.data_dir, 'task_data', 'task_data.json'),
+    data_path: str = os.path.join(common_path.data_dir, 'task_data', 'asote.train.json'),
     output_dir: str = "./chat-sentiment-analysis",
     # training hyperparams
     batch_size: int = 128,
@@ -89,17 +85,17 @@ def train(
     num_epochs: int = 1,
     learning_rate: float = 3e-4,
     cutoff_len: int = 512,
-    val_set_size: int = 500,
+    val_set_size: int = 0,
     # lora hyperparams
     lora_r: int = 16,
     lora_alpha: int = 16,
     lora_dropout: float = 0.05,
     lora_target_modules: List[str] = ['q_proj', 'k_proj', 'v_proj', 'o_proj'],
     # llm hyperparams
-    train_on_inputs: bool = True,  # if False, masks out inputs in loss
+    train_on_inputs: bool = False,  # if False, masks out inputs in loss
     group_by_length: bool = False,  # faster, but produces an odd training loss curve
     resume_from_checkpoint: str = None,  # either training checkpoint or final adapter
-    prompt_template_name: str = "alpaca",  # The prompt template to use, will default to alpaca.
+    prompt_template_name: str = "sentiment_analysis",  # The prompt template to use, will default to alpaca.
 ):
     tokenizer = LlamaTokenizer.from_pretrained(base_model)
 
@@ -125,7 +121,8 @@ def train(
                                                                                  cutoff_len))
         )
     else:
-        train_data = data["train"].shuffle().map(generate_and_tokenize_prompt_wrapper(prompter, train_on_inputs, tokenizer,
+        train_data = data["train"].shuffle().map(generate_and_tokenize_prompt_wrapper(prompter, train_on_inputs,
+                                                                                      tokenizer,
                                                                                       cutoff_len))
         val_data = None
 
