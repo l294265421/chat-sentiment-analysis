@@ -8,6 +8,7 @@ import torch
 import transformers
 from peft import PeftModel
 from transformers import GenerationConfig, LlamaForCausalLM, LlamaTokenizer
+from tqdm import tqdm
 
 from chat_sentiment_analysis.utils.prompter import Prompter
 from chat_sentiment_analysis.common import common_path
@@ -29,7 +30,10 @@ def main(
     ), "Please specify a --base_model, e.g. --base_model='decapoda-research/llama-7b-hf'"
 
     prompter = Prompter(prompt_template)
+
     tokenizer = LlamaTokenizer.from_pretrained(base_model)
+    tokenizer.padding_side = "left"
+
     model = LlamaForCausalLM.from_pretrained(
         base_model,
         load_in_8bit=load_8bit,
@@ -59,8 +63,9 @@ def main(
         max_new_tokens=64,
         **kwargs,
     ):
-        inputs = tokenizer(prompt, return_tensors="pt")
+        inputs = tokenizer(prompt, padding=True, return_tensors="pt")
         input_ids = inputs["input_ids"].to(device)
+        attention_mask = inputs["attention_mask"].to(device)
         # https://huggingface.co/blog/how-to-generate
         # https://huggingface.co/docs/transformers/generation_strategies
         # https://medium.com/mlearning-ai/softmax-temperature-5492e4007f71
@@ -70,20 +75,25 @@ def main(
         with torch.no_grad():
             generation_output = model.generate(
                 input_ids=input_ids,
+                attention_mask=attention_mask,
                 generation_config=generation_config,
                 return_dict_in_generate=True,
                 output_scores=True,
                 max_new_tokens=max_new_tokens,
             )
-        generated_texts = tokenizer.batch_decode(generation_output, skip_special_tokens=True)
-        return None
+        generated_texts = tokenizer.batch_decode(generation_output[0], skip_special_tokens=True)
+        result = []
+        for i in range(len(prompt)):
+            response = generated_texts[i][len(prompt[i]) + 1:]
+            result.append(response)
+        return result
 
     output_lines = []
     lines = file_utils.read_all_lines(data_path)
     batch_size = 32
     line_batch = []
     prompt_batch = []
-    for line in lines:
+    for line in tqdm(lines):
         line_obj = json.loads(line)
         line_batch.append(line_obj)
 
