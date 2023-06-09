@@ -73,8 +73,8 @@ def evaluate(instances):
     pred = set()
     for instance in instances:
         input = instance[0]
-        true.add(['%s##%s' % (input, e) for e in instance[1]])
-        pred.add(['%s##%s' % (input, e)for e in instance[2]])
+        true.update(['%s##%s' % (input, e) for e in instance[1]])
+        pred.update(['%s##%s' % (input, e)for e in instance[2]])
     result = precision_recall_f1(pred, true)
     return result
 
@@ -86,7 +86,7 @@ def print_precision_recall_f1(metrics: dict):
     :return:
     """
     precision, recall, f1 = metrics['precision'], metrics['recall'], metrics['f1']
-    result = '\t'.join([','.join(precision), ','.join(recall), ','.join(f1)])
+    result = '\t'.join([str(precision), str(recall), str(f1)])
     print(result)
 
 

@@ -120,7 +120,7 @@ def main(
         line_batch = []
         prompt_batch = []
 
-    [json.dumps(line_obj, ensure_ascii=False) for e in output_lines]
+    output_lines = [json.dumps(e, ensure_ascii=False) for e in output_lines]
 
     output_filepath = data_path + '.with_pred'
     file_utils.write_lines(output_lines, output_filepath)
